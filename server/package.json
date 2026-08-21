@@ -1,0 +1,9 @@
+{
+  "name": "kuthay-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

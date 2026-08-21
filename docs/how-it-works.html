@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kuthay P2P — Technical Concepts</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#111a2e; --panel2:#0e1626; --line:#22304d;
+    --txt:#dbe4f3; --dim:#8fa1bf;
+    --cyan:#22d3ee; --violet:#a78bfa; --green:#34d399; --red:#f87171; --amber:#fbbf24;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 80px}
+  header.hero{
+    border:1px solid var(--line);border-radius:16px;padding:34px 30px;
+    background:linear-gradient(135deg,#101c33 0%,#0b1220 60%);
+    margin-bottom:26px;
+  }
+  h1{margin:0 0 8px;font-size:30px;letter-spacing:-.5px}
+  h1 .accent{color:var(--cyan)}
+  .sub{color:var(--dim);font-size:15.5px;max-width:660px}
+  nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:34px}
+  nav.toc a{
+    color:var(--cyan);text-decoration:none;border:1px solid var(--line);
+    padding:5px 12px;border-radius:999px;font-size:13px;background:var(--panel);
+  }
+  nav.toc a:hover{background:#182b4a}
+  section{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:26px 28px;margin-bottom:26px;
+  }
+  h2{margin:0 0 6px;font-size:21px;display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:8px;height:22px;border-radius:4px;background:var(--cyan)}
+  .lead{color:var(--dim);margin:2px 0 18px;font-size:14.5px}
+  h3{font-size:15.5px;margin:20px 0 8px;color:var(--violet)}
+  p{margin:10px 0}
+  ul{margin:8px 0;padding-left:22px}
+  li{margin:5px 0}
+  b,strong{color:#fff}
+  code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    background:#0a1526;border:1px solid var(--line);padding:1px 6px;border-radius:6px;
+    font-size:13px;color:#bfe9ff;
+  }
+  pre{
+    background:#081020;border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.55;color:#bfe9ff;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:#0d1930;color:#fff}
+  tbody tr:nth-child(even) td{background:var(--panel2)}
+  .ok{color:var(--green)} .bad{color:var(--red)} .warn{color:var(--amber)}
+  .fig{
+    background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:14px;margin:18px 0;
+  }
+  .fig svg{width:100%;height:auto;display:block}
+  .cap{color:var(--dim);font-size:13px;text-align:center;margin-top:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+  .chip{
+    font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
+    border:1px solid var(--line);border-radius:8px;padding:4px 10px;background:#0a1526;
+  }
+  .chip.c{color:var(--cyan)} .chip.g{color:var(--green)} .chip.r{color:var(--red)} .chip.a{color:var(--amber)} .chip.v{color:var(--violet)}
+  .stats{display:flex;gap:14px;flex-wrap:wrap;margin:16px 0}
+  .stat{
+    flex:1 1 160px;background:#0d1930;border:1px solid var(--line);
+    border-radius:12px;padding:16px;text-align:center;
+  }
+  .stat .n{font-size:30px;font-weight:700;color:var(--cyan)}
+  .stat .l{color:var(--dim);font-size:12.5px;margin-top:4px;line-height:1.4}
+  .gl{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
+  .gl div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.5px}
+  .gl dt{color:var(--violet);font-weight:600;margin-bottom:3px;display:inline}
+  .gl dd{margin:0;color:var(--dim);display:inline}
+  footer{color:var(--dim);font-size:12.5px;margin-top:30px;text-align:center}
+  .pulse{animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+  .flow{stroke-dasharray:7 7;animation:dash 1.1s linear infinite}
+  @keyframes dash{to{stroke-dashoffset:-14}}
+  @media(max-width:640px){h1{font-size:24px}section{padding:20px}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="mCyan"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#22d3ee"/></marker>
+    <marker id="mViolet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#a78bfa"/></marker>
+    <marker id="mGreen"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#34d399"/></marker>
+    <marker id="mRed"    viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#f87171"/></marker>
+    <marker id="mAmber"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#fbbf24"/></marker>
+    <marker id="mDim"    viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#8fa1bf"/></marker>
+  </defs>
+</svg>
+
+<div class="wrap">
+
+<header class="hero">
+  <h1>Kuthay <span class="accent">P2P</span> — How It Works</h1>
+  <p class="sub">Connecting two smartphones 3–4&nbsp;km apart directly over Indian cellular networks using IPv6 hole-punching. Every concept, protocol and design decision used in the prototype, explained with diagrams.</p>
+</header>
+
+<nav class="toc">
+  <a href="#s1">1 · Why not radio</a>
+  <a href="#s2">2 · NAT &amp; CGNAT</a>
+  <a href="#s3">3 · Why IPv6 wins</a>
+  <a href="#s4">4 · Hole punching</a>
+  <a href="#s5">5 · Architecture</a>
+  <a href="#s6">6 · Protocol walk</a>
+  <a href="#s7">7 · Wire format</a>
+  <a href="#s8">8 · Failure modes</a>
+  <a href="#s9">9 · Glossary</a>
+</nav>
+
+<section id="s1">
+  <h2>1 · The problem — and why radio can't solve it</h2>
+  <p class="lead">Two phones stand 3–4 kilometres apart. No radio inside a smartphone reaches even a tenth of that.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 760 275" role="img" aria-label="Range comparison bar chart">
+      <g font-size="13" fill="#8fa1bf">
+        <text x="182" y="53"  text-anchor="end">BLE</text>
+        <text x="182" y="97"  text-anchor="end">Wi-Fi Direct</text>
+        <text x="182" y="141" text-anchor="end">Wi-Fi Aware</text>
+        <text x="182" y="185" text-anchor="end">5G Sidelink (PC5)</text>
+        <text x="182" y="229" text-anchor="end" fill="#f87171">Required distance</text>
+      </g>
+      <rect x="190" y="38"  width="4"   height="20" rx="3" fill="#a78bfa"/>
+      <rect x="190" y="82"  width="13"  height="20" rx="3" fill="#a78bfa"/>
+      <rect x="190" y="126" width="25"  height="20" rx="3" fill="#a78bfa"/>
+      <rect x="190" y="170" width="100" height="20" rx="3" fill="#a78bfa"/>
+      <rect x="190" y="214" width="500" height="20" rx="3" fill="none" stroke="#f87171" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <g font-size="12.5" fill="#dbe4f3">
+        <text x="202" y="53">~30 m</text>
+        <text x="211" y="97">~100 m</text>
+        <text x="223" y="141">~200 m</text>
+        <text x="298" y="185">~0.5–1 km (V2X only)</text>
+        <text x="682" y="229" text-anchor="end" fill="#f87171">3–4 km</text>
+      </g>
+      <line x1="190" y1="245" x2="690" y2="245" stroke="#22304d"/>
+      <g font-size="11.5" fill="#8fa1bf" text-anchor="middle">
+        <text x="190" y="262">0</text>
+        <text x="315" y="262">1 km</text>
+        <text x="440" y="262">2 km</text>
+        <text x="565" y="262">3 km</text>
+        <text x="690" y="262">4 km</text>
+      </g>
+    </svg>
+    <p class="cap">Fig 1 — Effective range of phone radios vs the required 3–4 km gap</p>
+  </div>
+
+  <ul>
+    <li><b>Wi-Fi Direct / Aware / BLE</b> — designed for same-room links. Even a chain of relaying phones would need dozens of cooperating strangers.</li>
+    <li><b>Cellular sidelink (PC5)</b> — the one true cellular D2D standard (3GPP Rel-12+). Real in V2X chips, but exposed by <span class="bad">zero consumer operators</span>: no API on Android/iOS, resource pools controlled by the tower.</li>
+    <li><b>The realistic path</b> — both phones already hold an internet connection through their SIMs. We build a <em>logical</em> peer-to-peer channel across the operator network and make it as direct as the infrastructure allows.</li>
+  </ul>
+</section>
+
+<section id="s2">
+  <h2>2 · The obstacle course — NAT and carrier-grade NAT</h2>
+  <p class="lead">A direct connection means packets flowing straight from one phone to another. The internet's addressing was never designed to allow that.</p>
+
+  <p>IPv4 has only ~4.3 billion addresses and mobile networks have far more devices than that, so carriers put thousands of subscribers behind each public IP using <b>carrier-grade NAT (CGNAT)</b>. Every phone gets a private address (<code>10.x.x.x</code>) and every outbound packet is rewritten:</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 760 330" role="img" aria-label="CGNAT versus IPv6 addressing">
+      <rect x="16" y="14" width="350" height="300" rx="12" fill="#0e1626" stroke="#f87171" stroke-opacity=".45"/>
+      <text x="191" y="42" text-anchor="middle" font-size="14" fill="#f87171">IPv4 + CGNAT (most carriers today)</text>
+
+      <rect x="36" y="66" width="118" height="52" rx="9" fill="#16233d" stroke="#22304d"/>
+      <text x="95" y="88" text-anchor="middle" font-size="12.5" fill="#dbe4f3">Phone A</text>
+      <text x="95" y="105" text-anchor="middle" font-size="11" fill="#8fa1bf" font-family="monospace">10.23.9.77</text>
+      <rect x="36" y="196" width="118" height="52" rx="9" fill="#16233d" stroke="#22304d"/>
+      <text x="95" y="218" text-anchor="middle" font-size="12.5" fill="#dbe4f3">Phone B</text>
+      <text x="95" y="235" text-anchor="middle" font-size="11" fill="#8fa1bf" font-family="monospace">10.88.4.10</text>
+
+      <line x1="154" y1="92" x2="210" y2="112" stroke="#8fa1bf" stroke-width="1.6" marker-end="url(#mDim)"/>
+      <line x1="154" y1="222" x2="210" y2="202" stroke="#8fa1bf" stroke-width="1.6" marker-end="url(#mDim)"/>
+
+      <rect x="216" y="96" width="86" height="132" rx="10" fill="#1b1230" stroke="#f87171" stroke-opacity=".6"/>
+      <text x="259" y="128" text-anchor="middle" font-size="12.5" fill="#f87171">CGNAT</text>
+      <text x="259" y="146" text-anchor="middle" font-size="10.5" fill="#8fa1bf">rewrites IP + port,</text>
+      <text x="259" y="161" text-anchor="middle" font-size="10.5" fill="#8fa1bf">per destination,</text>
+      <text x="259" y="176" text-anchor="middle" font-size="10.5" fill="#8fa1bf">tracks state</text>
+      <text x="259" y="204" text-anchor="middle" font-size="10" fill="#8fa1bf" font-family="monospace">100.64/10</text>
+
+      <circle cx="330" cy="162" r="30" fill="#0a1526" stroke="#22304d"/>
+      <text x="330" y="167" text-anchor="middle" font-size="10.5" fill="#8fa1bf">Internet</text>
+      <line x1="302" y1="162" x2="296" y2="162" stroke="#8fa1bf" stroke-width="1.6" marker-end="url(#mDim)"/>
+
+      <text x="191" y="298" text-anchor="middle" font-size="11.5" fill="#8fa1bf">thousands of devices share one public IPv4</text>
+
+      <rect x="394" y="14" width="350" height="300" rx="12" fill="#0e1626" stroke="#34d399" stroke-opacity=".45"/>
+      <text x="569" y="42" text-anchor="middle" font-size="14" fill="#34d399">Native IPv6 (Jio ≈ default)</text>
+
+      <rect x="414" y="66" width="150" height="52" rx="9" fill="#16233d" stroke="#22304d"/>
+      <text x="489" y="88" text-anchor="middle" font-size="12.5" fill="#dbe4f3">Phone A</text>
+      <text x="489" y="106" text-anchor="middle" font-size="9.5" fill="#34d399" font-family="monospace">2405:201:9002::f3e1</text>
+      <rect x="414" y="196" width="150" height="52" rx="9" fill="#16233d" stroke="#22304d"/>
+      <text x="489" y="218" text-anchor="middle" font-size="12.5" fill="#dbe4f3">Phone B</text>
+      <text x="489" y="236" text-anchor="middle" font-size="9.5" fill="#34d399" font-family="monospace">2405:201:9414::a07b</text>
+
+      <circle cx="686" cy="157" r="30" fill="#0a1526" stroke="#22304d"/>
+      <text x="686" y="162" text-anchor="middle" font-size="10.5" fill="#8fa1bf">Internet</text>
+      <line x1="564" y1="92" x2="654" y2="146" stroke="#34d399" stroke-width="1.6" marker-end="url(#mGreen)"/>
+      <line x1="564" y1="222" x2="654" y2="168" stroke="#34d399" stroke-width="1.6" marker-end="url(#mGreen)"/>
+
+      <text x="569" y="286" text-anchor="middle" font-size="11.5" fill="#8fa1bf">globally routable addresses — nothing translates them</text>
+      <text x="569" y="304" text-anchor="middle" font-size="11.5" fill="#8fa1bf">A can address B directly, 4 km or 400 km away</text>
+    </svg>
+    <p class="cap">Fig 2 — Left: many devices squeezed through one public IPv4. Right: IPv6 gives every handset its own identity.</p>
+  </div>
+
+  <h3>Symmetric NAT — why probes lie to you</h3>
+  <p>To connect two peers you must learn each one's <em>public</em> endpoint. The classic tool is a STUN server: “send me a packet, I'll tell you what I saw.” Behind symmetric CGNAT that answer is a trap:</p>
+
+  <table>
+    <thead>
+      <tr><th></th><th>IPv4 behind CGNAT (symmetric)</th><th>Native IPv6</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Address seen by server</td><td>shared carrier IP <code>49.36.x.x</code></td><td><span class="ok">your own <code>2405:201:…</code></span></td></tr>
+      <tr><td>External port when talking <em>to server</em></td><td>e.g. <code>:33001</code></td><td><span class="ok">unchanged — no translation exists</span></td></tr>
+      <tr><td>External port when talking <em>to peer</em></td><td><span class="bad">re-rolled, e.g. <code>:33887</code></span> — peer never learns it</td><td><span class="ok">same socket, same port</span></td></tr>
+      <tr><td>Packets aimed at the probed endpoint</td><td><span class="bad">silently dropped</span></td><td><span class="ok">reach the phone once fw allows</span></td></tr>
+      <tr><td>Practical result</td><td>STUN useless → must relay via TURN (cost + latency)</td><td>punching usually succeeds first try</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s3">
+  <h2>3 · Why IPv6 changes everything — especially in India</h2>
+  <p class="lead">India accidentally became the perfect laboratory for direct P2P: mobile operators skipped IPv4 expansion and went straight to IPv6.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="n">~75%</div><div class="l">of Indian users reach Google over IPv6 — world #1</div></div>
+    <div class="stat"><div class="n">~95%</div><div class="l">of Reliance Jio subscribers are on native IPv6</div></div>
+    <div class="stat"><div class="n">~47%</div><div class="l">global average IPv6 capability</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">NAT translations between two v6 handsets</div></div>
+  </div>
+
+  <p>With IPv6 there is no address shortage, so there is <b>no NAT device rewriting your traffic</b>. Each phone holds a globally unique address handed out via SLAAC when the radio attaches to the network. Two phones 4&nbsp;km apart already possess everything needed to address each other directly.</p>
+
+  <p>One gatekeeper remains: carriers still run <b>stateful firewalls</b> that drop packets arriving from outside unless the phone recently sent something outward. That is not a translation problem — it's a door that only opens from the inside. Which brings us to punching.</p>
+</section>
+
+<section id="s4">
+  <h2>4 · UDP hole-punching — opening doors from the inside</h2>
+  <p class="lead">Both peers knock outward at each other simultaneously. Each knock creates firewall state; the opposite side's knock slips in through it.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 760 330" role="img" aria-label="Hole punching sequence">
+      <rect x="20" y="128" width="112" height="58" rx="9" fill="#16233d" stroke="#22304d"/>
+      <text x="76" y="153" text-anchor="middle" font-size="13" fill="#dbe4f3">Phone A</text>
+      <text x="76" y="171" text-anchor="middle" font-size="10" fill="#8fa1bf" font-family="monospace">[2405:a::1]:5000</text>
+
+      <rect x="176" y="86" width="26" height="150" rx="6" fill="#1b2a45" stroke="#22304d"/>
+      <text x="189" y="78" text-anchor="middle" font-size="11" fill="#8fa1bf">FW A</text>
+      <rect x="558" y="86" width="26" height="150" rx="6" fill="#1b2a45" stroke="#22304d"/>
+      <text x="571" y="78" text-anchor="middle" font-size="11" fill="#8fa1bf">FW B</text>
+
+      <rect x="628" y="128" width="112" height="58" rx="9" fill="#16233d" stroke="#22304d"/>
+      <text x="684" y="153" text-anchor="middle" font-size="13" fill="#dbe4f3">Phone B</text>
+      <text x="684" y="171" text-anchor="middle" font-size="10" fill="#8fa1bf" font-family="monospace">[2405:b::9]:5000</text>
+
+      <circle cx="40" cy="148" r="10" fill="#22d3ee"/>
+      <text x="40" y="152" text-anchor="middle" font-size="12" font-weight="bold" fill="#04121f">1</text>
+      <line x1="140" y1="148" x2="550" y2="148" stroke="#f87171" stroke-width="1.8" class="flow" marker-end="url(#mRed)"/>
+      <text x="380" y="136" text-anchor="middle" font-size="12" fill="#f87171">A→B knock: state born at FW-A ✓ — dropped at FW-B ✗</text>
+      <text x="212" y="163" text-anchor="middle" font-size="12" fill="#34d399">✓</text>
+      <text x="546" y="163" text-anchor="middle" font-size="12" fill="#f87171">✗</text>
+
+      <circle cx="40" cy="208" r="10" fill="#22d3ee"/>
+      <text x="40" y="212" text-anchor="middle" font-size="12" font-weight="bold" fill="#04121f">2</text>
+      <line x1="620" y1="208" x2="142" y2="208" stroke="#fbbf24" stroke-width="1.8" class="flow" marker-end="url(#mAmber)"/>
+      <text x="380" y="196" text-anchor="middle" font-size="12" fill="#fbbf24">B→A knock: state born at FW-B ✓ — slips through FW-A ✓ delivered!</text>
+      <text x="592" y="223" text-anchor="middle" font-size="12" fill="#34d399">✓</text>
+      <text x="204" y="223" text-anchor="middle" font-size="12" fill="#34d399">✓</text>
+
+      <circle cx="40" cy="288" r="10" fill="#22d3ee"/>
+      <text x="40" y="292" text-anchor="middle" font-size="12" font-weight="bold" fill="#04121f">3</text>
+      <line x1="138" y1="288" x2="622" y2="288" stroke="#34d399" stroke-width="2.6" class="pulse" marker-start="url(#mGreen)" marker-end="url(#mGreen)"/>
+      <text x="380" y="276" text-anchor="middle" font-size="12" fill="#34d399">both directions now flow — direct path established</text>
+    </svg>
+    <p class="cap">Fig 3 — Simultaneous-open punch. Neither side needs inbound rules; both create their own.</p>
+  </div>
+
+  <ul>
+    <li><b>Timing window</b> — firewall state lives tens of seconds; our prototype re-sends every <code>350 ms</code> for up to <code>60 s</code>, so overlap is guaranteed.</li>
+    <li><b>Keepalive</b> — after connecting we slow to one packet per <code>2 s</code> so the doors never close.</li>
+    <li><b>UDP preferred</b> — connectionless, cheap for firewalls to allow, ideal for punch mechanics. TCP simultaneous-open exists but midboxes mishandle it more often.</li>
+    <li><b>RTT for free</b> — each PING embeds the sender's clock reading; the echoed PONG returns it, so the pinger measures round-trip time with its own clock.</li>
+  </ul>
+</section>
+
+<section id="s5">
+  <h2>5 · System architecture</h2>
+  <p class="lead">One tiny public server introduces the peers. Everything heavy happens phone-to-phone afterwards.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 760 330" role="img" aria-label="Architecture diagram">
+      <rect x="24" y="112" width="140" height="76" rx="10" fill="#16233d" stroke="#22304d"/>
+      <text x="94" y="143" text-anchor="middle" font-size="13.5" fill="#dbe4f3">Phone A</text>
+      <text x="94" y="162" text-anchor="middle" font-size="10.5" fill="#8fa1bf">Kotlin app · UdpPuncher</text>
+
+      <rect x="300" y="52" width="160" height="206" rx="12" fill="#0d1930" stroke="#22d3ee" stroke-opacity=".5"/>
+      <text x="380" y="80" text-anchor="middle" font-size="13.5" fill="#22d3ee">VPS (public IPv6)</text>
+      <rect x="312" y="98" width="136" height="62" rx="8" fill="#0a1526" stroke="#22304d"/>
+      <text x="380" y="121" text-anchor="middle" font-size="11.5" fill="#dbe4f3">WebSocket :8080</text>
+      <text x="380" y="139" text-anchor="middle" font-size="10.5" fill="#8fa1bf">rooms · candidates · results</text>
+      <rect x="312" y="176" width="136" height="62" rx="8" fill="#0a1526" stroke="#22304d"/>
+      <text x="380" y="199" text-anchor="middle" font-size="11.5" fill="#dbe4f3">UDP probe :5688</text>
+      <text x="380" y="217" text-anchor="middle" font-size="10.5" fill="#8fa1bf">“what address do you see?”</text>
+
+      <rect x="596" y="112" width="140" height="76" rx="10" fill="#16233d" stroke="#22304d"/>
+      <text x="666" y="143" text-anchor="middle" font-size="13.5" fill="#dbe4f3">Phone B</text>
+      <text x="666" y="162" text-anchor="middle" font-size="10.5" fill="#8fa1bf">Kotlin app · UdpPuncher</text>
+
+      <line x1="164" y1="132" x2="296" y2="132" stroke="#22d3ee" stroke-width="1.6" marker-start="url(#mCyan)" marker-end="url(#mCyan)"/>
+      <text x="230" y="122" text-anchor="middle" font-size="10.5" fill="#22d3ee">signaling</text>
+      <line x1="464" y1="132" x2="592" y2="132" stroke="#22d3ee" stroke-width="1.6" marker-start="url(#mCyan)" marker-end="url(#mCyan)"/>
+      <text x="528" y="122" text-anchor="middle" font-size="10.5" fill="#22d3ee">signaling</text>
+
+      <line x1="164" y1="172" x2="296" y2="172" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#mAmber)"/>
+      <text x="230" y="166" text-anchor="middle" font-size="10.5" fill="#fbbf24">probe → {ip,port}</text>
+      <line x1="464" y1="172" x2="592" y2="172" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#mAmber)"/>
+      <text x="528" y="166" text-anchor="middle" font-size="10.5" fill="#fbbf24">probe → {ip,port}</text>
+
+      <path d="M94 188 Q380 315 666 188" stroke="#34d399" stroke-width="2.6" fill="none" class="pulse" marker-start="url(#mGreen)" marker-end="url(#mGreen)"/>
+      <text x="380" y="308" text-anchor="middle" font-size="12" fill="#34d399">direct UDP data path — server no longer involved</text>
+    </svg>
+    <p class="cap">Fig 4 — Rendezvous server (Node.js, ~50 MB RAM) vs the actual data plane</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Repo piece</th><th>Role</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>server/server.js</code></td><td>Rendezvous: issues 4-char room codes, relays candidates, echoes UDP probes back annotated with the caller's seen <code>[ip]:port</code>, logs the success matrix per carrier pair.</td></tr>
+      <tr><td><code>UdpPuncher.kt</code></td><td>Binds an IPv6-only NIO <code>DatagramChannel</code>, discovers its server-reflexive endpoint, runs the PING/PONG storm, carries the chat.</td></tr>
+      <tr><td><code>P2pSession.kt</code></td><td>State machine wiring signaling → probe → exchange → punch → connected.</td></tr>
+      <tr><td><code>P2pService.kt</code></td><td>Foreground service so Android doesn't kill sockets when the screen sleeps.</td></tr>
+      <tr><td><code>SignalingClient.kt</code></td><td>OkHttp WebSocket with 15 s pings so the control channel survives idle timeouts too.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s6">
+  <h2>6 · Protocol walkthrough</h2>
+  <p class="lead">Nine messages from cold start to a live direct channel.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 760 700" role="img" aria-label="Sequence diagram">
+      <g text-anchor="middle">
+        <rect x="50" y="16" width="120" height="32" rx="8" fill="#16233d" stroke="#22304d"/>
+        <text x="110" y="37" font-size="13" font-weight="bold" fill="#dbe4f3">Phone A</text>
+        <rect x="320" y="16" width="120" height="32" rx="8" fill="#0d1930" stroke="#22d3ee"/>
+        <text x="380" y="37" font-size="13" font-weight="bold" fill="#22d3ee">Server</text>
+        <rect x="590" y="16" width="120" height="32" rx="8" fill="#16233d" stroke="#22304d"/>
+        <text x="650" y="37" font-size="13" font-weight="bold" fill="#dbe4f3">Phone B</text>
+      </g>
+      <g stroke="#22304d" stroke-dasharray="4 5">
+        <line x1="110" y1="48" x2="110" y2="672"/>
+        <line x1="380" y1="48" x2="380" y2="672"/>
+        <line x1="650" y1="48" x2="650" y2="672"/>
+      </g>
+
+      <g font-size="12" fill="#22d3ee">
+        <line x1="116" y1="92" x2="374" y2="92" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#mCyan)"/>
+        <text x="245" y="84" text-anchor="middle">register { role:host, label }</text>
+        <line x1="374" y1="134" x2="116" y2="134" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#mCyan)"/>
+        <text x="245" y="126" text-anchor="middle">registered { code:"K7X2", yourAddr }</text>
+        <line x1="644" y1="176" x2="386" y2="176" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#mCyan)"/>
+        <text x="515" y="168" text-anchor="middle">join { code:"K7X2" }</text>
+        <line x1="374" y1="218" x2="644" y2="218" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#mCyan)"/>
+        <text x="512" y="210" text-anchor="middle">joined · ready (peer online)</text>
+        <line x1="374" y1="252" x2="116" y2="252" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#mCyan)"/>
+        <text x="245" y="244" text-anchor="middle">ready</text>
+      </g>
+
+      <g font-size="12" fill="#fbbf24">
+        <line x1="116" y1="296" x2="374" y2="296" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#mAmber)"/>
+        <text x="245" y="288" text-anchor="middle">UDP probe { sid } → :5688</text>
+        <line x1="374" y1="338" x2="116" y2="338" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#mAmber)"/>
+        <text x="245" y="330" text-anchor="middle">{ ip, port } = my srflx address</text>
+        <line x1="644" y1="380" x2="386" y2="380" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#mAmber)"/>
+        <text x="515" y="372" text-anchor="middle">UDP probe { sid }</text>
+        <line x1="374" y1="422" x2="644" y2="422" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#mAmber)"/>
+        <text x="512" y="414" text-anchor="middle">{ ip, port } = B's srflx</text>
+      </g>
+
+      <g font-size="12" fill="#a78bfa">
+        <line x1="116" y1="464" x2="374" y2="464" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#mViolet)"/>
+        <text x="245" y="456" text-anchor="middle">candidate { A.ip, A.port }</text>
+        <line x1="374" y1="500" x2="644" y2="500" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#mViolet)"/>
+        <text x="512" y="492" text-anchor="middle">relay → B learns A's endpoint</text>
+        <text x="380" y="532" text-anchor="middle" font-style="italic">(the same two hops carry B's candidate back)</text>
+      </g>
+
+      <g font-size="12.5" fill="#34d399">
+        <line x1="124" y1="592" x2="636" y2="592" stroke="#34d399" stroke-width="2.8" class="pulse" marker-start="url(#mGreen)" marker-end="url(#mGreen)"/>
+        <text x="380" y="576" text-anchor="middle">PING storm (350 ms) → first PONG → CONNECTED (rtt)</text>
+        <text x="380" y="620" text-anchor="middle">TXT chat frames ride the same socket · keepalive 2 s</text>
+      </g>
+    </svg>
+    <p class="cap">Fig 5 — Message sequence: cyan = WebSocket signaling · amber = UDP probing · violet = candidate exchange · green = data plane</p>
+  </div>
+</section>
+
+<section id="s7">
+  <h2>7 · On the wire — formats and states</h2>
+  <p class="lead">Deliberately boring JSON and pipe-delimited strings. Debuggable with eyes alone.</p>
+
+  <h3>Signaling frames (JSON over WebSocket)</h3>
+  <pre>{"type":"register","code":"","label":"jio-mumbai","device":"Xiaomi 22127PN0CI"}    A → S
+{"type":"registered","code":"K7X2","yourAddr":"2405:201:9002::f3e1"}                S → A
+{"type":"join","code":"K7X2","label":"airtel-pune"}                                 B → S
+{"type":"candidate","ip":"2405:201:9414::a07b","port":41234}                        both ways
+{"type":"result","ok":true,"note":"connected rtt=48ms","label":"jio-mumbai"}        A → S</pre>
+
+  <h3>UDP payloads (plain text, <code>|</code>-delimited)</h3>
+  <pre>{"kuthay":true,"sid":"a1b2c3d4","seq":0}          probe to server; reply adds "ip"+"port"
+K|a1b2c3d4|PING|17|981234567890                   punch packet (sessionId|seq|nanoTime)
+K|a1b2c3d4|PONG|981234567890                      echo — sender computes RTT
+K|a1b2c3d4|KA|42                                  post-connect keepalive
+K|a1b2c3d4|TXT|981234567890|hello across town     chat frame</pre>
+
+  <h3>Client state machine</h3>
+  <div class="chips">
+    <span class="chip c">CONNECTING_SIGNAL</span>
+    <span class="chip c">WAIT_PEER_JOIN</span>
+    <span class="chip a">WAIT_PEER_CANDIDATE</span>
+    <span class="chip a">GOT_PEER_CANDIDATE</span>
+    <span class="chip a">PUNCHING</span>
+    <span class="chip g">CONNECTED (rtt ms)</span>
+    <span class="chip r">FAILED</span>
+  </div>
+  <p>Each transition is logged on screen, so a failed field test shows <em>exactly</em> which stage the carrier broke.</p>
+</section>
+
+<section id="s8">
+  <h2>8 · Reading failure modes</h2>
+  <p class="lead">Every terminal outcome maps to a specific network behaviour — the experiment is informative even when it fails.</p>
+
+  <table>
+    <thead>
+      <tr><th>Observation in log</th><th>Diagnosis</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>yourAddr = ::ffff:49.36.x.x</code></td><td><span class="bad">No IPv6 on that SIM/APN</span> — WebSocket fell back to IPv4. Fix APN or switch carrier before testing.</td></tr>
+      <tr><td>srflx discovery fails</td><td>Carrier firewall blocks UDP to the probe port entirely — rare, but instantly known.</td></tr>
+      <tr><td>Only <code>inbound ping (half-open)</code></td><td><span class="warn">Asymmetric filtering</span> — peer reaches you, your direction is dropped. Retries sometimes help; otherwise needs a TURN-class fallback.</td></tr>
+      <tr><td>Both sides send, neither receives</td><td>Endpoint-dependent filtering persists even on v6 — that carrier pair goes on the “needs relay” list.</td></tr>
+      <tr><td><code>CONNECTED</code> then silence later</td><td>Keepalive lost (doze mode / cell reselection). The foreground service mitigates; reconnect logic is the next milestone.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="s9">
+  <h2>9 · Glossary</h2>
+  <dl class="gl">
+    <div><dt>NAT</dt><dd> — Network Address Translation: rewrites IP/port pairs so many devices share few public addresses; breaks unsolicited inbound traffic.</dd></div>
+    <div><dt>CGNAT</dt><dd> — Carrier-grade NAT at ISP scale; uses the reserved <code>100.64.0.0/10</code> pool internally (RFC 6598).</dd></div>
+    <div><dt>Symmetric NAT</dt><dd> — The hostile kind: external port differs per destination, so endpoints learned from a STUN server are worthless to peers.</dd></div>
+    <div><dt>STUN</dt><dd> — Session Traversal Utilities for NAT: a server reflects your packet back annotated with the source address it saw.</dd></div>
+    <div><dt>TURN</dt><dd> — Traversal Using Relays around NAT: routes media through a server when direct paths die. Costs bandwidth; avoided here whenever possible.</dd></div>
+    <div><dt>ICE / srflx</dt><dd> — ICE gathers candidates (host / server-reflexive / relay) and tests pairs; “srflx” is the address a STUN-like server reports seeing.</dd></div>
+    <div><dt>Hole punching</dt><dd> — Simultaneous outbound sends creating reciprocal firewall state, letting two previously unreachable peers exchange packets directly.</dd></div>
+    <div><dt>Stateful firewall</dt><dd> — Allows return traffic only for flows it saw leave first — the one remaining gatekeeper on native IPv6.</dd></div>
+    <div><dt>SLAAC</dt><dd> — IPv6 Stateless Address Autoconfiguration: phones derive global addresses from router advertisements when attaching to the network.</dd></div>
+    <div><dt>Privacy extensions</dt><dd> — Rotating temporary IPv6 addresses against tracking; irrelevant mid-session since the app pins one socket.</dd></div>
+    <div><dt>Half-open</dt><dd> — One-way reachability: peer→you arrives, you→peer is filtered. Signature of asymmetric middlebox policy.</dd></div>
+    <div><dt>RTT</dt><dd> — Round-trip time, measured by echoing the pinger's own timestamp back so clocks never need syncing.</dd></div>
+    <div><dt>Sidelink / ProSe (PC5)</dt><dd> — 3GPP device-to-device radio interface. Standardised, real in V2X chips, absent from consumer networks — hence this detour through IP.</dd></div>
+    <div><dt>NTN D2D</dt><dd> — Non-Terrestrial Network direct-to-device (BSNL×Viasat in India): satellite messaging where towers end. Messaging-grade only.</dd></div>
+    <div><dt>Foreground service</dt><dd> — Android's mechanism for long-running user-visible work; keeps our sockets alive past screen-off.</dd></div>
+  </dl>
+</section>
+
+<footer>
+  Figures drawn to conceptual scale · Numbers: Google IPv6 statistics, RFC 6598 addressing model, 3GPP Rel-12/17 · Kuthay P2P prototype docs
+</footer>
+
+</div>
+</body>
+</html>

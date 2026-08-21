@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/etServer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="ws://vps-ip:8080"
+        android:inputType="textUri"
+        android:singleLine="true" />
+
+    <EditText
+        android:id="@+id/etLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="label e.g. jio-mumbai"
+        android:singleLine="true" />
+
+    <Button
+        android:id="@+id/btnCreate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Create session" />
+
+    <EditText
+        android:id="@+id/etCode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="room code"
+        android:maxLength="4"
+        android:singleLine="true"
+        android:textAllCaps="true" />
+
+    <Button
+        android:id="@+id/btnJoin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Join session" />
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:text="IDLE"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/etMsg"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="message to peer"
+        android:singleLine="true" />
+
+    <Button
+        android:id="@+id/btnSend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Send" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <TextView
+            android:id="@+id/tvLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textIsSelectable="true"
+            android:textSize="12sp"
+            android:typeface="monospace" />
+    </ScrollView>
+</LinearLayout>
