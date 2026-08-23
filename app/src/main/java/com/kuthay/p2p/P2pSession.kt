@@ -86,7 +86,7 @@ class P2pSession(
         when (e) {
             is UdpPuncher.Event.GotPing -> P2pBus.log("inbound ping from ${e.from} (half-open)")
             is UdpPuncher.Event.Connected -> {
-                if (!punchDone.isComplete) punchDone.complete(e.rttMs)
+                if (!punchDone.isCompleted) punchDone.complete(e.rttMs)
             }
             is UdpPuncher.Event.Text -> P2pBus.log("peer: ${e.msg}")
             is UdpPuncher.Event.Error -> P2pBus.log("udp: ${e.msg}")

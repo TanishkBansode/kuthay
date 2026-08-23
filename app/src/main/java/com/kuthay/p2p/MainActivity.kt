@@ -11,10 +11,14 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class MainActivity : Activity() {
+
+    private val uiScope = CoroutineScope(Dispatchers.Main.immediate)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,17 +52,22 @@ class MainActivity : Activity() {
             if (msg.isNotEmpty()) P2pBus.session?.sendChat(msg)
         }
 
-        lifecycleScope.launch {
+        uiScope.launch {
             P2pBus.logs.collect { line ->
                 tvLog.append("$line\n")
             }
         }
-        lifecycleScope.launch {
+        uiScope.launch {
             P2pBus.status.collect { s ->
                 tvStatus.text = s
                 btnSend.isEnabled = s.startsWith("CONNECTED")
             }
         }
+    }
+
+    override fun onDestroy() {
+        uiScope.cancel()
+        super.onDestroy()
     }
 
     private fun launch(server: String, label: String, mode: String, code: String) {
