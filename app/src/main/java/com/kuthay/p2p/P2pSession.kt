@@ -43,8 +43,10 @@ class P2pSession(
                 puncher = UdpPuncher(sessionId)
                 puncher.start()
                 P2pBus.log("udp bound [::]:${puncher.localPortNumber()} sid=$sessionId")
-                val stunServers = DEFAULT_STUNS.mapNotNull { (host, port) ->
-                    runCatching { InetSocketAddress(InetAddress.getByName(host), port) }.getOrNull()
+                val stunServers = DEFAULT_STUNS.flatMap { (host, port) ->
+                    val addrs = runCatching { InetAddress.getAllByName(host) }.getOrDefault(arrayOf())
+                    addrs.sortedByDescending { it is java.net.Inet6Address }
+                        .map { InetSocketAddress(it, port) }
                 }
                 if (stunServers.isEmpty()) {
                     fail("cannot resolve any STUN server")
@@ -52,7 +54,10 @@ class P2pSession(
                 }
                 val srflx = withTimeoutOrNull(25000) { puncher.probe(stunServers) }
                 if (srflx == null) {
-                    fail("srflx discovery failed (STUN unreachable or carrier has no IPv6)")
+                    fail(
+                        if (puncher.sawV4Only) "STUN answered with IPv4 only — this network has NO IPv6 (Wi-Fi on? APN set to IPv4?)"
+                        else "STUN unreachable — UDP 19302/3478 blocked?"
+                    )
                     return@launch
                 }
                 P2pBus.log("my srflx = ${srflx.ip}:${srflx.port}")

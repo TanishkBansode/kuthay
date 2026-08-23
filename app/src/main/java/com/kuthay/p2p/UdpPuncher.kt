@@ -28,6 +28,8 @@ class UdpPuncher(private val sessionId: String) {
     @Volatile private var running = false
     @Volatile private var connected = false
     @Volatile private var gotPing = false
+    @Volatile var sawV4Only = false
+        private set
 
     fun start() {
         ch = DatagramChannel.open(StandardProtocolFamily.INET6)
@@ -102,6 +104,8 @@ class UdpPuncher(private val sessionId: String) {
                     }
                     val ip = InetAddress.getByAddress(addr).hostAddress?.split("%")?.get(0)
                     if (ip != null && !ip.contains(":ffff:")) return Cand(ip, port)
+                } else if (family == 1 && attrLen == 12) {
+                    sawV4Only = true
                 }
             }
             bb.position(start + ((attrLen + 3) / 4) * 4)
