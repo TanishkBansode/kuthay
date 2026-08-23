@@ -9,7 +9,7 @@
         android:id="@+id/etServer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="ws://vps-ip:8080"
+        android:hint="wss://your-tunnel.trycloudflare.com"
         android:inputType="textUri"
         android:singleLine="true" />
 

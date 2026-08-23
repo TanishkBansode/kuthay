@@ -1,6 +1,5 @@
 package com.kuthay.p2p
 
-import android.net.Uri
 import android.os.Build
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -44,15 +43,16 @@ class P2pSession(
                 puncher = UdpPuncher(sessionId)
                 puncher.start()
                 P2pBus.log("udp bound [::]:${puncher.localPortNumber()} sid=$sessionId")
-                val host = Uri.parse(serverUrl).host
-                    ?: run {
-                        fail("bad server url")
-                        return@launch
-                    }
-                val probeAddr = InetSocketAddress(InetAddress.getByName(host), PROBE_PORT)
-                val srflx = withTimeoutOrNull(15000) { puncher.probe(probeAddr) }
+                val stunServers = DEFAULT_STUNS.mapNotNull { (host, port) ->
+                    runCatching { InetSocketAddress(InetAddress.getByName(host), port) }.getOrNull()
+                }
+                if (stunServers.isEmpty()) {
+                    fail("cannot resolve any STUN server")
+                    return@launch
+                }
+                val srflx = withTimeoutOrNull(25000) { puncher.probe(stunServers) }
                 if (srflx == null) {
-                    fail("srflx discovery failed (server udp6 unreachable from this carrier?)")
+                    fail("srflx discovery failed (STUN unreachable or carrier has no IPv6)")
                     return@launch
                 }
                 P2pBus.log("my srflx = ${srflx.ip}:${srflx.port}")
@@ -155,6 +155,9 @@ class P2pSession(
     }
 
     companion object {
-        const val PROBE_PORT = 5688
+        val DEFAULT_STUNS = listOf(
+            "stun.l.google.com" to 19302,
+            "stun.cloudflare.com" to 3478
+        )
     }
 }

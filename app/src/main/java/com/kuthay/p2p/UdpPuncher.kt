@@ -4,7 +4,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.SocketAddress
@@ -39,41 +38,75 @@ class UdpPuncher(private val sessionId: String) {
 
     fun localPortNumber(): Int = localPort
 
-    suspend fun probe(serverAddr: InetSocketAddress): Cand? {
-        repeat(8) { attempt ->
-            val payload = JSONObject()
-                .put("kuthay", true)
-                .put("sid", sessionId)
-                .put("seq", attempt)
-                .toString()
-            try {
-                ch.send(ByteBuffer.wrap(payload.toByteArray()), serverAddr)
-            } catch (e: Exception) {
-                P2pBus.log("probe send error: ${e.message}")
-            }
-            val deadline = System.currentTimeMillis() + 900
-            while (System.currentTimeMillis() < deadline) {
-                val bb = ByteBuffer.allocate(1500)
-                val from = ch.receive(bb)
-                if (from == null) {
-                    delay(40)
-                    continue
-                }
-                parseProbeReply(String(bb.array(), 0, bb.position()))?.let { return it }
+    suspend fun probe(stunServers: List<InetSocketAddress>): Cand? {
+        for (srv in stunServers) {
+            P2pBus.log("stun query ${srv.address.hostAddress}:${srv.port}")
+            repeat(3) {
+                stunQueryOnce(srv)?.let { return it }
+                delay(300)
             }
         }
         return null
     }
 
-    private fun parseProbeReply(text: String): Cand? {
-        return try {
-            val json = JSONObject(text)
-            if (json.optBoolean("kuthay") && json.optString("sid") == sessionId) {
-                Cand(json.getString("ip").split("%")[0], json.getInt("port"))
-            } else null
-        } catch (_: Exception) {
-            null
+    private suspend fun stunQueryOnce(srv: InetSocketAddress): Cand? {
+        val txid = ByteArray(12).also { java.security.SecureRandom().nextBytes(it) }
+        val req = ByteBuffer.allocate(20)
+            .putShort(0x0001)
+            .putShort(0)
+            .putInt(MAGIC_COOKIE)
+            .put(txid)
+        req.flip()
+        try {
+            ch.send(req, srv)
+        } catch (e: Exception) {
+            P2pBus.log("stun send error: ${e.message}")
+            return null
         }
+        val deadline = System.currentTimeMillis() + 1500
+        while (System.currentTimeMillis() < deadline) {
+            val bb = ByteBuffer.allocate(1500)
+            val from = ch.receive(bb)
+            if (from == null) {
+                delay(40)
+                continue
+            }
+            parseStunResponse(bb, txid)?.let { return it }
+        }
+        return null
+    }
+
+    private fun parseStunResponse(bb: ByteBuffer, txid: ByteArray): Cand? {
+        if (bb.position() < 20) return null
+        bb.flip()
+        val type = bb.short.toInt() and 0xFFFF
+        if (type != 0x0101) return null
+        bb.getShort()
+        for (i in 0 until 4) if (bb.get() != MAGIC_BYTES[i]) return null
+        val rxTid = ByteArray(12).also { bb.get(it) }
+        if (!rxTid.contentEquals(txid)) return null
+
+        while (bb.remaining() >= 4) {
+            val attrType = bb.short.toInt() and 0xFFFF
+            val attrLen = bb.short.toInt() and 0xFFFF
+            if (attrLen > bb.remaining()) break
+            val start = bb.position()
+            if (attrType == 0x0020 && attrLen >= 8) {
+                val family = bb.get(start + 1).toInt()
+                var port = (bb.get(start + 2).toInt() and 0xFF) shl 8 or (bb.get(start + 3).toInt() and 0xFF)
+                port = port xor (MAGIC_COOKIE ushr 16)
+                if (family == 2 && attrLen == 20) {
+                    val addr = ByteArray(16)
+                    for (j in 0 until 16) {
+                        addr[j] = (bb.get(start + 4 + j).toInt() xor MAGIC_BYTES[j % 4].toInt()).toByte()
+                    }
+                    val ip = InetAddress.getByAddress(addr).hostAddress?.split("%")?.get(0)
+                    if (ip != null && !ip.contains(":ffff:")) return Cand(ip, port)
+                }
+            }
+            bb.position(start + ((attrLen + 3) / 4) * 4)
+        }
+        return null
     }
 
     fun startPunch(scope: CoroutineScope, cand: Cand, onEvent: (Event) -> Unit) {
@@ -145,5 +178,10 @@ class UdpPuncher(private val sessionId: String) {
             ch.close()
         } catch (_: Exception) {
         }
+    }
+
+    companion object {
+        private const val MAGIC_COOKIE = 0x2112A444
+        private val MAGIC_BYTES = byteArrayOf(0x21, 0x12, 0xA4.toByte(), 0x44.toByte())
     }
 }
