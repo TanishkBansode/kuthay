@@ -123,8 +123,20 @@ wss.on('connection', (ws, req) => {
         if (room) {
             const other = ws.side === 'host' ? room.joiner : room.host;
             send(other, { type: 'error', msg: 'peer disconnected' });
-            if (ws.side === 'host') rooms.delete(ws.room);
-            else { room.joiner = null; room.joinerCand = null; }
+            if (ws.side === 'host') {
+                // 5G/4G handover blips drop the WebSocket for a second — a joiner
+                // knocking after that blip must still be able to use the room code.
+                const code = ws.room;
+                setTimeout(() => {
+                    const r = rooms.get(code);
+                    if (r && r.host === ws && (!r.joiner || r.joiner.readyState !== 1)) {
+                        rooms.delete(code);
+                    }
+                }, 30_000);
+            } else {
+                room.joiner = null;
+                room.joinerCand = null;
+            }
         }
     });
 });

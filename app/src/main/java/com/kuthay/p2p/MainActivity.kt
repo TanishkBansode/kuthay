@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.ScrollView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -47,14 +48,24 @@ class MainActivity : Activity() {
                 etCode.text.toString().trim().uppercase()
             )
         }
+        findViewById<Button>(R.id.btnStop).setOnClickListener {
+            val i = Intent(this, P2pService::class.java).apply {
+                action = P2pService.ACTION_STOP
+            }
+            startService(i)
+        }
         btnSend.setOnClickListener {
             val msg = etMsg.text.toString()
-            if (msg.isNotEmpty()) P2pBus.session?.sendChat(msg)
+            if (msg.isNotEmpty()) {
+                if (P2pBus.session?.sendChat(msg) == true) etMsg.setText("")
+            }
         }
 
         uiScope.launch {
+            val svLog = findViewById<ScrollView>(R.id.svLog)
             P2pBus.logs.collect { line ->
                 tvLog.append("$line\n")
+                svLog.post { svLog.fullScroll(ScrollView.FOCUS_DOWN) }
             }
         }
         uiScope.launch {

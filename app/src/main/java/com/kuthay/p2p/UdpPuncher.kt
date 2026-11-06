@@ -122,7 +122,7 @@ class UdpPuncher(private val sessionId: String) {
                     }
                     val ip = InetAddress.getByAddress(addr).hostAddress?.split("%")?.get(0)
                     if (ip != null && !ip.contains(":ffff:") && !isNat64(ip)) return Cand(ip, port)
-                } else if (family == 1 && attrLen == 12) {
+                } else if (family == 1 && attrLen == 8) {
                     sawV4Only = true
                 }
             }

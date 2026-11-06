@@ -16,7 +16,8 @@ class PunchTest {
     private val txid = ByteArray(12) { (it + 1).toByte() }
 
     private fun buildResponse(family: Int, plainAddr: ByteArray, plainPort: Int): ByteBuffer {
-        val attrLen = if (family == 2) 20 else 12
+        // value length only: 1 (reserved) + 1 (family) + 2 (port) + 4 (IPv4) = 8; 4+16 = 20 for IPv6
+        val attrLen = if (family == 2) 20 else 8
         val total = 20 + 4 + attrLen
         val buf = ByteBuffer.allocate(total)
         buf.putShort(0x0101)          // binding success response

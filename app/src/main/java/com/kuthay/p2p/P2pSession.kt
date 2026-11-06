@@ -177,7 +177,10 @@ class P2pSession(
                 "result" -> P2pBus.log("peer result: ok=${m.optBoolean("ok")} ${m.optString("note")}")
                 "error" -> {
                     P2pBus.log("server: ${m.optString("msg")}")
-                    P2pBus.setStatus("ERROR")
+                    // A signaling-side error must not tear down live direct UDP P2P.
+                    // In relay mode signaling IS the transport, so the error is fatal;
+                    // pre-connect it just sets ERROR; post-connect direct is untouched.
+                    if (relayMode || !P2pBus.connected.value) P2pBus.setStatus("ERROR")
                 }
             }
         }

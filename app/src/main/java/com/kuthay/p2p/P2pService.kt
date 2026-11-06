@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
@@ -62,11 +63,17 @@ class P2pService : Service() {
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "p2p test", NotificationManager.IMPORTANCE_LOW)
         )
+        val stopIntent = Intent(this, P2pService::class.java).apply { action = ACTION_STOP }
+        val stopPi = PendingIntent.getService(
+            this, 0, stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val n = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("Kuthay P2P")
             .setContentText("test active ($mode)")
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setOngoing(true)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop test", stopPi)
             .build()
         startForeground(NOTIF_ID, n)
     }
@@ -76,7 +83,8 @@ class P2pService : Service() {
         val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "kuthay:p2p").apply {
             setReferenceCounted(false)
-            acquire()
+            // Safety cap: never let the CPU stay awake longer than 10 minutes.
+            acquire(10 * 60 * 1000L)
         }
     }
 
