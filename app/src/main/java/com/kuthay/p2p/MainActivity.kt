@@ -60,7 +60,7 @@ class MainActivity : Activity() {
         uiScope.launch {
             P2pBus.status.collect { s ->
                 tvStatus.text = s
-                btnSend.isEnabled = s.startsWith("CONNECTED")
+                btnSend.isEnabled = s.startsWith("CONNECTED") || s.startsWith("RELAYED")
             }
         }
     }

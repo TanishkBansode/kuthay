@@ -294,8 +294,9 @@
   </div>
 
   <ul>
-    <li><b>Timing window</b> — firewall state lives tens of seconds; our prototype re-sends every <code>350 ms</code> for up to <code>60 s</code>, so overlap is guaranteed.</li>
+    <li><b>Timing window</b> — firewall state lives tens of seconds; our prototype re-sends every <code>350 ms</code> for up to <code>20 s</code>, then falls back to <code>RELAYED</code> (chat rides the WebSocket).</li>
     <li><b>Keepalive</b> — after connecting we slow to one packet per <code>2 s</code> so the doors never close.</li>
+    <li><b>Port re-mapping</b> — address-dependent CGNs (common for Indian carriers) re-roll the peer's source port <em>per destination</em>, so the punch can arrive from a different port than the peer's STUN candidate. While punching, a packet that passes the session-id check and shares the peer's IP <em>adopts</em> its observed source (exactly what ICE does); after <code>CONNECTED</code> the path is locked.</li>
     <li><b>UDP preferred</b> — connectionless, cheap for firewalls to allow, ideal for punch mechanics. TCP simultaneous-open exists but midboxes mishandle it more often.</li>
     <li><b>RTT for free</b> — each PING embeds the sender's clock reading; the echoed PONG returns it, so the pinger measures round-trip time with its own clock.</li>
   </ul>
@@ -317,8 +318,8 @@
       <text x="380" y="121" text-anchor="middle" font-size="11.5" fill="#dbe4f3">WebSocket :8080</text>
       <text x="380" y="139" text-anchor="middle" font-size="10.5" fill="#8fa1bf">rooms · candidates · results</text>
       <rect x="312" y="176" width="136" height="62" rx="8" fill="#0a1526" stroke="#22304d"/>
-      <text x="380" y="199" text-anchor="middle" font-size="11.5" fill="#dbe4f3">UDP probe :5688</text>
-      <text x="380" y="217" text-anchor="middle" font-size="10.5" fill="#8fa1bf">“what address do you see?”</text>
+      <text x="380" y="199" text-anchor="middle" font-size="11.5" fill="#dbe4f3">relay (ws)</text>
+      <text x="380" y="217" text-anchor="middle" font-size="10.5" fill="#8fa1bf">chat fallback if punch fails</text>
 
       <rect x="596" y="112" width="140" height="76" rx="10" fill="#16233d" stroke="#22304d"/>
       <text x="666" y="143" text-anchor="middle" font-size="13.5" fill="#dbe4f3">Phone B</text>
@@ -330,12 +331,12 @@
       <text x="528" y="122" text-anchor="middle" font-size="10.5" fill="#22d3ee">signaling</text>
 
       <line x1="164" y1="172" x2="296" y2="172" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#mAmber)"/>
-      <text x="230" y="166" text-anchor="middle" font-size="10.5" fill="#fbbf24">probe → {ip,port}</text>
+      <text x="230" y="166" text-anchor="middle" font-size="10.5" fill="#fbbf24">STUN → srflx</text>
       <line x1="464" y1="172" x2="592" y2="172" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#mAmber)"/>
-      <text x="528" y="166" text-anchor="middle" font-size="10.5" fill="#fbbf24">probe → {ip,port}</text>
+      <text x="528" y="166" text-anchor="middle" font-size="10.5" fill="#fbbf24">STUN → srflx</text>
 
       <path d="M94 188 Q380 315 666 188" stroke="#34d399" stroke-width="2.6" fill="none" class="pulse" marker-start="url(#mGreen)" marker-end="url(#mGreen)"/>
-      <text x="380" y="308" text-anchor="middle" font-size="12" fill="#34d399">direct UDP data path — server no longer involved</text>
+      <text x="380" y="308" text-anchor="middle" font-size="12" fill="#34d399">direct UDP data path — or RELAYED over the WebSocket when the punch is impossible</text>
     </svg>
     <p class="cap">Fig 4 — Rendezvous server (Node.js, ~50 MB RAM) vs the actual data plane</p>
   </div>
@@ -345,9 +346,9 @@
       <tr><th>Repo piece</th><th>Role</th></tr>
     </thead>
     <tbody>
-      <tr><td><code>server/server.js</code></td><td>Rendezvous: issues 4-char room codes, relays candidates, echoes UDP probes back annotated with the caller's seen <code>[ip]:port</code>, logs the success matrix per carrier pair.</td></tr>
-      <tr><td><code>UdpPuncher.kt</code></td><td>Binds an IPv6-only NIO <code>DatagramChannel</code>, discovers its server-reflexive endpoint, runs the PING/PONG storm, carries the chat.</td></tr>
-      <tr><td><code>P2pSession.kt</code></td><td>State machine wiring signaling → probe → exchange → punch → connected.</td></tr>
+      <tr><td><code>server/server.js</code></td><td>Rendezvous: issues 4-char room codes, relays candidates (with session id) and results, and — as the fallback when no direct path exists — forwards <code>relay-request</code>/<code>relay-msg</code> chat frames over the WebSocket.</td></tr>
+      <tr><td><code>UdpPuncher.kt</code></td><td>Binds an IPv6-only NIO <code>DatagramChannel</code>, discovers its server-reflexive endpoint via STUN (Cloudflare :3478, then Google :19302), runs the PING/PONG storm, carries the chat; NAT64-synthesised candidates are detected and dropped.</td></tr>
+      <tr><td><code>P2pSession.kt</code></td><td>State machine wiring signaling → STUN → exchange → punch → connected — with automatic <b>RELAYED</b> fallback over the signaling channel whenever direct punching is impossible.</td></tr>
       <tr><td><code>P2pService.kt</code></td><td>Foreground service so Android doesn't kill sockets when the screen sleeps.</td></tr>
       <tr><td><code>SignalingClient.kt</code></td><td>OkHttp WebSocket with 15 s pings so the control channel survives idle timeouts too.</td></tr>
     </tbody>
@@ -389,18 +390,18 @@
 
       <g font-size="12" fill="#fbbf24">
         <line x1="116" y1="296" x2="374" y2="296" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#mAmber)"/>
-        <text x="245" y="288" text-anchor="middle">UDP probe { sid } → :5688</text>
+        <text x="245" y="288" text-anchor="middle">STUN binding → Cloudflare :3478 / Google :19302</text>
         <line x1="374" y1="338" x2="116" y2="338" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#mAmber)"/>
         <text x="245" y="330" text-anchor="middle">{ ip, port } = my srflx address</text>
         <line x1="644" y1="380" x2="386" y2="380" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#mAmber)"/>
-        <text x="515" y="372" text-anchor="middle">UDP probe { sid }</text>
+        <text x="515" y="372" text-anchor="middle">STUN binding</text>
         <line x1="374" y1="422" x2="644" y2="422" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#mAmber)"/>
         <text x="512" y="414" text-anchor="middle">{ ip, port } = B's srflx</text>
       </g>
 
       <g font-size="12" fill="#a78bfa">
         <line x1="116" y1="464" x2="374" y2="464" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#mViolet)"/>
-        <text x="245" y="456" text-anchor="middle">candidate { A.ip, A.port }</text>
+        <text x="245" y="456" text-anchor="middle">candidate { A.ip, A.port, A.sid }</text>
         <line x1="374" y1="500" x2="644" y2="500" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#mViolet)"/>
         <text x="512" y="492" text-anchor="middle">relay → B learns A's endpoint</text>
         <text x="380" y="532" text-anchor="middle" font-style="italic">(the same two hops carry B's candidate back)</text>
@@ -410,6 +411,7 @@
         <line x1="124" y1="592" x2="636" y2="592" stroke="#34d399" stroke-width="2.8" class="pulse" marker-start="url(#mGreen)" marker-end="url(#mGreen)"/>
         <text x="380" y="576" text-anchor="middle">PING storm (350 ms) → first PONG → CONNECTED (rtt)</text>
         <text x="380" y="620" text-anchor="middle">TXT chat frames ride the same socket · keepalive 2 s</text>
+        <text x="380" y="640" text-anchor="middle" fill="#fbbf24">20 s without PONG → RELAYED — chat rides the WebSocket</text>
       </g>
     </svg>
     <p class="cap">Fig 5 — Message sequence: cyan = WebSocket signaling · amber = UDP probing · violet = candidate exchange · green = data plane</p>
@@ -421,15 +423,16 @@
   <p class="lead">Deliberately boring JSON and pipe-delimited strings. Debuggable with eyes alone.</p>
 
   <h3>Signaling frames (JSON over WebSocket)</h3>
-  <pre>{"type":"register","code":"","label":"jio-mumbai","device":"Xiaomi 22127PN0CI"}    A → S
-{"type":"registered","code":"K7X2","yourAddr":"2405:201:9002::f3e1"}                S → A
-{"type":"join","code":"K7X2","label":"airtel-pune"}                                 B → S
-{"type":"candidate","ip":"2405:201:9414::a07b","port":41234}                        both ways
-{"type":"result","ok":true,"note":"connected rtt=48ms","label":"jio-mumbai"}        A → S</pre>
+  <pre>{"type":"register","code":"","label":"jio-mumbai","device":"Xiaomi 22127PN0CI","sid":"a1b2c3d4"}   A → S
+{"type":"registered","code":"K7X2","yourAddr":"2405:201:9002::f3e1"}                       S → A
+{"type":"join","code":"K7X2","label":"airtel-pune","sid":"b2c3d4e5"}                        B → S
+{"type":"candidate","ip":"2405:201:9414::a07b","port":41234,"sid":"b2c3d4e5"}               both ways (sid lets each side filter packets from the peer's socket)
+{"type":"result","ok":true,"note":"connected rtt=48ms","label":"jio-mumbai"}                A → S
+{"type":"relay-request"}                                                                      fallback trigger, either side
+{"type":"relay-msg","text":"hello across town"}                                                relayed chat over the socket</pre>
 
   <h3>UDP payloads (plain text, <code>|</code>-delimited)</h3>
-  <pre>{"kuthay":true,"sid":"a1b2c3d4","seq":0}          probe to server; reply adds "ip"+"port"
-K|a1b2c3d4|PING|17|981234567890                   punch packet (sessionId|seq|nanoTime)
+  <pre>K|a1b2c3d4|PING|17|981234567890                   punch packet (sessionId|seq|nanoTime)
 K|a1b2c3d4|PONG|981234567890                      echo — sender computes RTT
 K|a1b2c3d4|KA|42                                  post-connect keepalive
 K|a1b2c3d4|TXT|981234567890|hello across town     chat frame</pre>
@@ -441,6 +444,7 @@ K|a1b2c3d4|TXT|981234567890|hello across town     chat frame</pre>
     <span class="chip a">WAIT_PEER_CANDIDATE</span>
     <span class="chip a">GOT_PEER_CANDIDATE</span>
     <span class="chip a">PUNCHING</span>
+    <span class="chip g">RELAYED (signaling fallback)</span>
     <span class="chip g">CONNECTED (rtt ms)</span>
     <span class="chip r">FAILED</span>
   </div>
@@ -456,10 +460,10 @@ K|a1b2c3d4|TXT|981234567890|hello across town     chat frame</pre>
       <tr><th>Observation in log</th><th>Diagnosis</th></tr>
     </thead>
     <tbody>
-      <tr><td><code>yourAddr = ::ffff:49.36.x.x</code></td><td><span class="bad">No IPv6 on that SIM/APN</span> — WebSocket fell back to IPv4. Fix APN or switch carrier before testing.</td></tr>
-      <tr><td>srflx discovery fails</td><td>Carrier firewall blocks UDP to the probe port entirely — rare, but instantly known.</td></tr>
-      <tr><td>Only <code>inbound ping (half-open)</code></td><td><span class="warn">Asymmetric filtering</span> — peer reaches you, your direction is dropped. Retries sometimes help; otherwise needs a TURN-class fallback.</td></tr>
-      <tr><td>Both sides send, neither receives</td><td>Endpoint-dependent filtering persists even on v6 — that carrier pair goes on the “needs relay” list.</td></tr>
+      <tr><td><code>yourAddr = ::ffff:49.36.x.x</code></td><td><span class="bad">No IPv6 on that SIM/APN</span> — WebSocket fell back to IPv4. The app now enters <code>RELAYED</code> automatically (chat still works over signaling); set APN Protocol = IPv4/IPv6 (Airtel/Vi) for the direct path.</td></tr>
+      <tr><td>srflx discovery fails</td><td>Carrier firewall blocks UDP to the STUN ports entirely — the app now falls back to <code>RELAYED</code> automatically instead of failing.</td></tr>
+      <tr><td>Only <code>inbound ping (half-open)</code></td><td><span class="warn">Asymmetric filtering</span> — peer reaches you, your direction is dropped. Retries after re-punch; otherwise it degrades to <code>RELAYED</code> after 20 s.</td></tr>
+      <tr><td>Both sides send, neither receives</td><td>Endpoint-dependent filtering persists even on v6 — the app now degrades to <code>RELAYED</code> automatically; the pair goes on the “needs relay” list.</td></tr>
       <tr><td><code>CONNECTED</code> then silence later</td><td>Keepalive lost (doze mode / cell reselection). The foreground service mitigates; reconnect logic is the next milestone.</td></tr>
     </tbody>
   </table>

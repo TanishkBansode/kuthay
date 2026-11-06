@@ -1,0 +1,9 @@
+*.iml
+.gradle/
+build/
+local.properties
+.idea/
+compile_commands.json
+.cxx/
+.DS_Store
+server/node_modules/

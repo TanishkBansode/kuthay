@@ -1,10 +1,8 @@
 const http = require('http');
 const crypto = require('crypto');
-const dgram = require('dgram');
 const { WebSocketServer } = require('ws');
 
 const WS_PORT = process.env.WS_PORT || 8080;
-const PROBE_PORT = process.env.PROBE_PORT || 5688;
 
 const rooms = new Map();
 
@@ -31,7 +29,7 @@ const server = http.createServer((req, res) => {
     res.end('kuthay signaling up\n');
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: 64 * 1024 });
 
 wss.on('connection', (ws, req) => {
     ws.seenAddr = cleanV6(req.socket.remoteAddress);
@@ -48,6 +46,7 @@ wss.on('connection', (ws, req) => {
                 ws.room = code;
                 ws.side = 'host';
                 ws.label = m.label || '';
+                ws.sid = m.sid || '';
                 console.log(`[room] ${code} created host=${ws.seenAddr} label="${ws.label}" device="${m.device || ''}"`);
                 send(ws, { type: 'registered', code, yourAddr: ws.seenAddr });
                 break;
@@ -56,22 +55,55 @@ wss.on('connection', (ws, req) => {
                 const room = rooms.get(String(m.code || '').toUpperCase());
                 if (!room) return send(ws, { type: 'error', msg: 'no such room' });
                 if (room.joiner && room.joiner.readyState === 1) return send(ws, { type: 'error', msg: 'room full' });
+                room.joinerCand = null;   // drop any stale buffered candidate from a previous joiner
                 room.joiner = ws;
                 ws.room = room.host.room;
                 ws.side = 'joiner';
                 ws.label = m.label || '';
+                ws.sid = m.sid || '';
                 console.log(`[room] ${ws.room} joined joiner=${ws.seenAddr} label="${ws.label}" device="${m.device || ''}"`);
                 send(ws, { type: 'joined', code: ws.room, yourAddr: ws.seenAddr });
                 send(room.host, { type: 'ready', peerInfo: `${ws.seenAddr} "${ws.label}"` });
                 send(ws, { type: 'ready', peerInfo: `${room.host.seenAddr} "${room.host.label}"` });
+                // The host probes STUN and sends its candidate long before the joiner
+                // connects — buffer it so the joiner doesn't vanish into a 30 s timeout.
+                if (room.hostCand) {
+                    send(ws, {
+                        type: 'candidate',
+                        ip: room.hostCand.ip,
+                        port: room.hostCand.port,
+                        sid: room.hostCand.sid || '',
+                    });
+                }
                 break;
             }
             case 'candidate': {
                 const room = rooms.get(ws.room);
                 if (!room) return;
                 console.log(`[cand] ${ws.room}/${ws.side} srflx=[${m.ip}]:${m.port}`);
+                // Buffer the latest candidate per side; it may predate the peer's join.
+                const cand = { ip: m.ip, port: m.port, sid: m.sid || '' };
+                if (ws.side === 'host') room.hostCand = cand;
+                else room.joinerCand = cand;
                 const other = ws.side === 'host' ? room.joiner : room.host;
-                send(other, { type: 'candidate', ip: m.ip, port: m.port });
+                if (other) send(other, { type: 'candidate', ip: cand.ip, port: cand.port, sid: cand.sid });
+                break;
+            }
+            // Relay fallback (P2a): when direct P2P is impossible (symmetric CGNAT,
+            // IPv4-only, NAT64), chat frames ride the signaling WebSocket.
+            case 'relay-request': {
+                const room = rooms.get(ws.room);
+                if (!room) return;
+                console.log(`[relay-request] ${ws.room}/${ws.side} ${ws.seenAddr}`);
+                const other = ws.side === 'host' ? room.joiner : room.host;
+                send(other, { type: 'relay-request' });
+                break;
+            }
+            case 'relay-msg': {
+                const room = rooms.get(ws.room);
+                if (!room) return;
+                const other = ws.side === 'host' ? room.joiner : room.host;
+                send(other, { type: 'relay-msg', text: String(m.text || '').slice(0, 4096) });
                 break;
             }
             case 'result': {
@@ -92,29 +124,9 @@ wss.on('connection', (ws, req) => {
             const other = ws.side === 'host' ? room.joiner : room.host;
             send(other, { type: 'error', msg: 'peer disconnected' });
             if (ws.side === 'host') rooms.delete(ws.room);
-            else room.joiner = null;
+            else { room.joiner = null; room.joinerCand = null; }
         }
     });
-});
-
-const udp = dgram.createSocket('udp6');
-
-udp.on('message', (buf, rinfo) => {
-    let m;
-    try { m = JSON.parse(buf.toString()); } catch { return; }
-    if (!m.kuthay || !m.sid) return;
-    const ip = cleanV6(rinfo.address);
-    const reply = JSON.stringify({ kuthay: true, sid: m.sid, ip, port: rinfo.port });
-    udp.send(reply, rinfo.port, rinfo.address, () => {
-        console.log(`[probe] reply to [${ip}]:${rinfo.port}`);
-    });
-});
-
-udp.on('error', (e) => console.error(`[probe] udp error: ${e.message}`));
-
-udp.bind(PROBE_PORT, () => {
-    const a = udp.address();
-    console.log(`[probe] listening on [${a.address}]:${a.port}`);
 });
 
 setInterval(() => {

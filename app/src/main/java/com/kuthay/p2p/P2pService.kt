@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.os.PowerManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,6 +17,7 @@ class P2pService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var session: P2pSession? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -26,11 +28,13 @@ class P2pService : Service() {
             P2pBus.session = null
             P2pBus.connected.value = false
             P2pBus.setStatus("STOPPED")
+            releaseWakeLock()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
         intent ?: return START_NOT_STICKY
+        acquireWakeLock()
         startTest(intent)
         return START_STICKY
     }
@@ -42,6 +46,11 @@ class P2pService : Service() {
         val joinCode = intent.getStringExtra(EXTRA_CODE) ?: ""
         notify(mode)
         P2pBus.connected.value = false
+        // Don't leak a previous session (sockets/WebSockets) on repeated starts.
+        session?.let { old ->
+            old.close()
+            if (P2pBus.session === old) P2pBus.session = null
+        }
         val s = P2pSession(scope, server, label)
         session = s
         P2pBus.session = s
@@ -62,7 +71,29 @@ class P2pService : Service() {
         startForeground(NOTIF_ID, n)
     }
 
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "kuthay:p2p").apply {
+            setReferenceCounted(false)
+            acquire()
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            wakeLock?.release()
+        } catch (_: Exception) {
+        }
+        wakeLock = null
+    }
+
     override fun onDestroy() {
+        session?.close()
+        if (P2pBus.session === session) {
+            P2pBus.session = null
+        }
+        releaseWakeLock()
         scope.cancel()
         super.onDestroy()
     }
